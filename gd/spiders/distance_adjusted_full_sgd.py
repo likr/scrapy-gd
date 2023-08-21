@@ -3,25 +3,28 @@ import json
 import os
 import scrapy
 import networkx as nx
-import egraph as eg
+import numpy as np
 import requests
+import egraph as eg
+from scipy.spatial.distance import pdist, squareform
 from .algorithm import *
 
 
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL', '')
 
 
-class FullSgdSpider(scrapy.Spider):
-    name = "full_sgd"
+class DistanceAdjustedFullSgdSpider(scrapy.Spider):
+    name = "distance_adjusted_full_sgd"
 
-    def __init__(self, graph=None, unit_edge_length=30, iterations=100, eps=0.1, seed_start=0, seed_stop=100, *args, **kwargs):
-        super(FullSgdSpider, self).__init__(*args, **kwargs)
+    def __init__(self, graph=None, unit_edge_length=1, iterations=15, eps=0.1, l=0.5, seed_start=0, seed_stop=100, *args, **kwargs):
+        super(DistanceAdjustedFullSgdSpider, self).__init__(*args, **kwargs)
         self.graph = graph
         self.algorithm = self.name
         self.unit_edge_length = int(unit_edge_length)
         self.params = {
             'iterations': int(iterations),
             'eps': float(eps),
+            'l': float(l),
         }
         self.seed_start = int(seed_start)
         self.seed_stop = int(seed_stop)
@@ -29,7 +32,7 @@ class FullSgdSpider(scrapy.Spider):
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
-        spider = super(FullSgdSpider, cls).from_crawler(crawler, *args, **kwargs)
+        spider = super(DistanceAdjustedFullSgdSpider, cls).from_crawler(crawler, *args, **kwargs)
         crawler.signals.connect(spider.engine_stopped,
                                 signal=scrapy.signals.engine_stopped)
         return spider
@@ -44,11 +47,11 @@ class FullSgdSpider(scrapy.Spider):
         nx_graph = nx.node_link_graph(data)
         graph, distance = convert_graph(nx_graph, self.unit_edge_length)
         for s in range(self.seed_start, self.seed_stop):
-            drawing = layout(graph, distance, iterations=self.params['iterations'], eps=self.params['eps'], seed=s)
+            drawing = layout_da(graph, distance, iterations=self.params['iterations'], eps=self.params['eps'], l=self.params['l'], seed=s)
             q = quality_metrics(graph, drawing, distance)
             q['edge_length'] = f'uniform {self.unit_edge_length}'
             q['seed'] = s
-            q['algorithm'] = 'FullSgd'
+            q['algorithm'] = self.algorithm
             q['graph'] = self.graph
             q['params'] = json.dumps(self.params)
             yield q
@@ -58,8 +61,7 @@ class FullSgdSpider(scrapy.Spider):
         if self.graph:
             filename = f'{self.algorithm}-{self.graph}-{self.timestamp}'
             requests.post(WEBHOOK_URL, json={
-                'content': f'''scraped
-Graph: {self.graph} (uniform edge {self.unit_edge_length})
+                'content': f'''Graph: {self.graph} (uniform edge {self.unit_edge_length})
 Algorithm: {self.algorithm}
 Params: {json.dumps(self.params)}
 Seed: {self.seed_start}-{self.seed_stop}
