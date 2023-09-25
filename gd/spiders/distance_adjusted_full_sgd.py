@@ -53,7 +53,7 @@ class DistanceAdjustedFullSgdSpider(scrapy.Spider):
             q['seed'] = s
             q['algorithm'] = self.algorithm
             q['graph'] = self.graph
-            q['params'] = json.dumps(self.params)
+            q['params'] = self.params
             yield q
 
 

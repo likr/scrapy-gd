@@ -93,7 +93,7 @@ TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
 FEEDS = {
-    'gs://vdslab/gdresult/%(timestamp)s.jsonl': {
+    'gs://vdslab/gdresult/%(algorithm)s-%(graph)s-%(timestamp)s.jsonl': {
         'format': 'jsonlines',
         'encoding': 'utf8',
         'overwrite': True,
